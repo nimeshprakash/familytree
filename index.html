@@ -244,9 +244,8 @@
         .tree-view-container {
             width: 100%;
             height: 100%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            overflow: auto;
+            padding: 20px;
             position: relative;
         }
 
@@ -267,6 +266,7 @@
             height: 100%;
             pointer-events: none;
             z-index: 1;
+            overflow: visible;
         }
 
         /* Tree Nodes */
@@ -622,6 +622,9 @@
         .full-tree-view {
             padding: 40px;
             min-height: calc(100vh - 60px);
+            overflow: auto;
+            display: flex;
+            flex-direction: column;
         }
 
         .tree-controls {
@@ -629,6 +632,7 @@
             gap: 12px;
             margin-bottom: 30px;
             justify-content: center;
+            flex-wrap: wrap;
         }
 
         .control-btn {
@@ -657,6 +661,8 @@
             position: relative;
             min-height: 100%;
             padding: 40px;
+            display: inline-block;
+            min-width: 100%;
         }
 
         .generation-row {
@@ -665,6 +671,8 @@
             align-items: flex-start;
             margin-bottom: 120px;
             position: relative;
+            flex-wrap: wrap;
+            gap: 20px;
         }
 
         .generation-label {
@@ -719,6 +727,74 @@
             color: var(--primary);
             white-space: nowrap;
             margin-top: 8px;
+        }
+
+        /* Make tree views scrollable */
+        .full-tree-view {
+            overflow: auto;
+        }
+
+        /* Mobile responsive */
+        @media (max-width: 1200px) {
+            .home-split {
+                grid-template-columns: 1fr;
+            }
+            
+            .home-tree-section {
+                display: none; /* Hide tree on mobile home page */
+            }
+            
+            .home-feed-section {
+                border-left: none;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .navbar {
+                padding: 0 20px;
+            }
+
+            .nav-logo {
+                font-size: 1.2em;
+                margin-right: 20px;
+            }
+
+            .nav-tabs {
+                gap: 4px;
+            }
+
+            .nav-tab {
+                padding: 6px 12px;
+                font-size: 14px;
+            }
+
+            .tree-controls {
+                flex-wrap: wrap;
+                gap: 8px;
+            }
+
+            .control-btn, .view-as-selector {
+                padding: 6px 12px;
+                font-size: 13px;
+            }
+
+            .full-tree-view {
+                padding: 20px;
+            }
+
+            .family-tree {
+                padding: 20px;
+            }
+
+            .generation-row {
+                flex-direction: column;
+                align-items: center;
+                margin-bottom: 80px;
+            }
+
+            .family-unit {
+                margin: 20px 0;
+            }
         }
     </style>
 </head>
@@ -1228,6 +1304,7 @@
                     name: this.currentUser.name,
                     avatar: this.currentUser.avatar,
                     isDeceased: false,
+                    generation: 0,
                     parents: [],
                     spouses: [],
                     children: [],
@@ -1354,8 +1431,27 @@
                 // Calculate positions
                 const positions = this.calculateTreePositions(viewingPerson);
 
-                // Create curved SVG lines with proper viewBox
-                let svg = '<svg class="tree-svg" viewBox="0 0 800 600" preserveAspectRatio="xMidYMid meet" style="width: 100%; height: 100%;">';
+                // Calculate bounding box for the tree
+                let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+                Object.values(positions).forEach(pos => {
+                    minX = Math.min(minX, pos.x);
+                    minY = Math.min(minY, pos.y);
+                    maxX = Math.max(maxX, pos.x);
+                    maxY = Math.max(maxY, pos.y);
+                });
+
+                // Add padding
+                const padding = 100;
+                minX -= padding;
+                minY -= padding;
+                maxX += padding;
+                maxY += padding;
+
+                const width = Math.max(800, maxX - minX);
+                const height = Math.max(600, maxY - minY);
+
+                // Create curved SVG lines with dynamic viewBox
+                let svg = `<svg class="tree-svg" viewBox="${minX} ${minY} ${width} ${height}" preserveAspectRatio="xMidYMid meet" style="width: 100%; height: 100%; min-width: ${width}px; min-height: ${height}px;">`;
                 
                 console.log('Drawing connections for', this.treeMembers.length, 'members');
                 
@@ -1419,6 +1515,24 @@
                 
                 html += '</div></div>';
                 container.innerHTML = html;
+            }
+
+            renderNode(member, position, isCurrentUser, relationLabel) {
+                const deceasedClass = member.isDeceased ? 'deceased' : '';
+                const currentUserClass = isCurrentUser ? 'current-user' : '';
+                
+                return `
+                    <div class="tree-node ${deceasedClass} ${currentUserClass}" 
+                         style="left: ${position.x}px; top: ${position.y}px;"
+                         data-id="${member.id}"
+                         oncontextmenu="app.showContextMenu(event, '${member.id}'); return false;">
+                        <img src="${member.avatar}" class="tree-node-avatar" alt="${member.name}">
+                        <div class="tree-node-info">
+                            <div class="tree-node-name">${member.name}</div>
+                            <div class="tree-node-relation">${relationLabel || 'Family'}</div>
+                        </div>
+                    </div>
+                `;
             }
 
             getRelationshipLabel(viewingPerson, targetPerson) {
@@ -1551,7 +1665,7 @@
                 // Group members by generation
                 const generations = {};
                 this.treeMembers.forEach(member => {
-                    const gen = member.generation || 0;
+                    const gen = member.generation !== undefined ? member.generation : 0;
                     if (!generations[gen]) generations[gen] = [];
                     generations[gen].push(member);
                 });
@@ -1559,7 +1673,18 @@
                 // Sort generations (highest ancestors to lowest descendants)
                 const sortedGens = Object.keys(generations).map(Number).sort((a, b) => a - b);
 
-                let html = '<div class="family-tree">';
+                if (sortedGens.length === 0) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <div style="font-size: 4em; margin-bottom: 16px; opacity: 0.3;">🌳</div>
+                            <h2>Start Your Family Tree</h2>
+                            <p>Add family members to begin</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                let html = '<div class="family-tree" style="min-width: 100%; padding: 40px;">';
 
                 sortedGens.forEach(genNum => {
                     const members = generations[genNum];
@@ -1567,27 +1692,38 @@
                                     genNum > 0 ? `Generation +${genNum} (Descendants)` :
                                     'Your Generation';
 
-                    html += `<div class="generation-row">`;
+                    html += `<div class="generation-row" style="min-height: 150px; margin-bottom: 100px;">`;
                     html += `<div class="generation-label">${genLabel}</div>`;
 
                     // Group by family units
                     const processed = new Set();
+                    
                     members.forEach(member => {
                         if (processed.has(member.id)) return;
 
-                        html += `<div class="family-unit">`;
+                        html += `<div class="family-unit" style="min-width: 200px;">`;
                         html += `<div class="couple">`;
                         
                         // Render person
-                        html += this.renderGenerationalNode(member, member.userId === this.viewingAsUserId || member.id === this.viewingAsUserId);
+                        const isViewing = member.userId === this.viewingAsUserId || member.id === this.viewingAsUserId;
+                        const relationLabel = this.getRelationshipLabel(
+                            this.treeMembers.find(m => m.userId === this.viewingAsUserId || m.id === this.viewingAsUserId),
+                            member
+                        );
+                        html += this.renderGenerationalNode(member, isViewing, relationLabel);
                         processed.add(member.id);
 
                         // Render spouse if exists
                         if (member.spouses && member.spouses.length > 0) {
                             const spouseId = member.spouses[0];
                             const spouse = this.treeMembers.find(m => m.id === spouseId);
-                            if (spouse) {
-                                html += this.renderGenerationalNode(spouse, spouse.userId === this.viewingAsUserId || spouse.id === this.viewingAsUserId);
+                            if (spouse && !processed.has(spouse.id)) {
+                                const spouseIsViewing = spouse.userId === this.viewingAsUserId || spouse.id === this.viewingAsUserId;
+                                const spouseRelation = this.getRelationshipLabel(
+                                    this.treeMembers.find(m => m.userId === this.viewingAsUserId || m.id === this.viewingAsUserId),
+                                    spouse
+                                );
+                                html += this.renderGenerationalNode(spouse, spouseIsViewing, spouseRelation);
                                 processed.add(spouse.id);
                             }
                         }
@@ -1616,16 +1752,18 @@
                 container.innerHTML = html;
             }
 
-            renderGenerationalNode(member, isCurrentUser) {
+            renderGenerationalNode(member, isCurrentUser, relationLabel) {
                 const deceasedClass = member.isDeceased ? 'deceased' : '';
                 const currentUserClass = isCurrentUser ? 'current-user' : '';
                 
                 return `
                     <div class="tree-node ${deceasedClass} ${currentUserClass}" 
                          data-id="${member.id}"
-                         oncontextmenu="app.showContextMenu(event, '${member.id}'); return false;">
+                         oncontextmenu="app.showContextMenu(event, '${member.id}'); return false;"
+                         style="padding: 10px;">
                         <img src="${member.avatar}" class="tree-node-avatar" alt="${member.name}">
                         <div class="tree-node-name-always">${member.name}</div>
+                        ${relationLabel && relationLabel !== 'You' ? `<div class="tree-node-relation" style="font-size: 11px; color: var(--secondary); margin-top: 4px;">${relationLabel}</div>` : ''}
                     </div>
                 `;
             }
@@ -1693,74 +1831,101 @@
                 const positions = {};
                 const centerX = 400;
                 const centerY = 300;
+                const horizontalSpacing = 180; // Increased spacing
+                const verticalSpacing = 160; // Increased spacing
                 
                 // Place center person
                 positions[centerPerson.id] = { x: centerX, y: centerY };
 
-                // Place parents above
-                if (centerPerson.parents) {
+                // Place parents above with better spacing
+                if (centerPerson.parents && centerPerson.parents.length > 0) {
+                    const parentCount = centerPerson.parents.length;
+                    const startX = centerX - ((parentCount - 1) * horizontalSpacing / 2);
                     centerPerson.parents.forEach((parentId, i) => {
                         positions[parentId] = {
-                            x: centerX - 150 + (i * 300),
-                            y: centerY - 150
+                            x: startX + (i * horizontalSpacing),
+                            y: centerY - verticalSpacing
                         };
                     });
                 }
 
-                // Place spouses beside
-                if (centerPerson.spouses) {
+                // Place spouses beside with spacing
+                if (centerPerson.spouses && centerPerson.spouses.length > 0) {
                     centerPerson.spouses.forEach((spouseId, i) => {
                         positions[spouseId] = {
-                            x: centerX + 200 + (i * 150),
+                            x: centerX + horizontalSpacing + (i * horizontalSpacing),
                             y: centerY
                         };
                     });
                 }
 
-                // Place children below
-                if (centerPerson.children) {
+                // Place children below with better distribution
+                if (centerPerson.children && centerPerson.children.length > 0) {
                     const childCount = centerPerson.children.length;
-                    const startX = centerX - ((childCount - 1) * 100);
+                    const startX = centerX - ((childCount - 1) * horizontalSpacing / 2);
                     centerPerson.children.forEach((childId, i) => {
                         positions[childId] = {
-                            x: startX + (i * 200),
-                            y: centerY + 150
+                            x: startX + (i * horizontalSpacing),
+                            y: centerY + verticalSpacing
                         };
                     });
                 }
 
-                // Place siblings to the side
-                if (centerPerson.siblings) {
+                // Place siblings to the side with vertical distribution
+                if (centerPerson.siblings && centerPerson.siblings.length > 0) {
+                    const siblingCount = centerPerson.siblings.length;
+                    const startY = centerY - ((siblingCount - 1) * 100 / 2);
                     centerPerson.siblings.forEach((siblingId, i) => {
                         positions[siblingId] = {
-                            x: centerX - 250,
-                            y: centerY - 80 + (i * 100)
+                            x: centerX - horizontalSpacing - 80,
+                            y: startY + (i * 100)
                         };
                     });
                 }
 
-                // Place extended family members
+                // Position extended family members with collision detection
                 this.treeMembers.forEach(member => {
                     if (!positions[member.id]) {
-                        // Position near a related person
+                        // Find closest related person
                         const relatedId = this.findClosestRelated(member, positions);
                         if (relatedId && positions[relatedId]) {
-                            positions[member.id] = {
-                                x: positions[relatedId].x + 150,
-                                y: positions[relatedId].y + 100
-                            };
+                            // Place near related person with offset
+                            const related = positions[relatedId];
+                            let newX = related.x + horizontalSpacing;
+                            let newY = related.y + 100;
+                            
+                            // Check for collisions and adjust
+                            let attempts = 0;
+                            while (this.checkCollision(newX, newY, positions) && attempts < 20) {
+                                newX += 50;
+                                newY += 50;
+                                attempts++;
+                            }
+                            
+                            positions[member.id] = { x: newX, y: newY };
                         } else {
-                            // Default positioning
+                            // Default positioning in grid
                             const count = Object.keys(positions).length;
                             positions[member.id] = {
-                                x: 100 + (count % 6) * 140,
-                                y: 100 + Math.floor(count / 6) * 120
+                                x: 100 + (count % 6) * horizontalSpacing,
+                                y: 100 + Math.floor(count / 6) * verticalSpacing
                             };
                         }
                     }
                 });
 
                 return positions;
+            }
+
+            checkCollision(x, y, positions) {
+                const minDistance = 80; // Minimum distance between nodes
+                for (let pos of Object.values(positions)) {
+                    const distance = Math.sqrt(Math.pow(pos.x - x, 2) + Math.pow(pos.y - y, 2));
+                    if (distance < minDistance) {
+                        return true;
+                    }
+                }
+                return false;
             }
 
             findClosestRelated(member, positions) {
@@ -1925,6 +2090,7 @@
                     avatar: avatar,
                     birthYear: birthYear || null,
                     isDeceased: isDeceased,
+                    generation: undefined, // Will be calculated when rendering
                     parents: [],
                     spouses: [],
                     children: [],
