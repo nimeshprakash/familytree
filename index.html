@@ -63,6 +63,20 @@
             color: var(--text-light);
         }
 
+        .invite-banner {
+            background: linear-gradient(135deg, #4CAF50, #45a049);
+            color: white;
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .invite-banner h3 {
+            font-size: 1.2em;
+            margin-bottom: 4px;
+        }
+
         input, textarea, select {
             width: 100%;
             padding: 14px;
@@ -238,8 +252,10 @@
 
         .mind-map-tree {
             position: relative;
-            width: 800px;
-            height: 600px;
+            width: 100%;
+            height: 100%;
+            min-width: 800px;
+            min-height: 600px;
         }
 
         /* SVG Lines */
@@ -301,6 +317,7 @@
             border: 1px solid var(--border);
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
             pointer-events: none;
+            z-index: 10;
         }
 
         .tree-node:hover .tree-node-info {
@@ -319,20 +336,14 @@
             color: var(--secondary);
         }
 
-        .tree-node-degree {
-            font-size: 10px;
-            color: var(--text-light);
-            font-family: monospace;
-        }
-
-        .tree-node.root .tree-node-avatar {
+        .tree-node.current-user .tree-node-avatar {
             width: 70px;
             height: 70px;
             border-width: 3px;
             border-color: var(--primary);
         }
 
-        .tree-node.root:hover .tree-node-avatar {
+        .tree-node.current-user:hover .tree-node-avatar {
             width: 90px;
             height: 90px;
             transform: translate(-10px, -10px);
@@ -632,6 +643,83 @@
         .control-btn:hover {
             background: var(--hover);
         }
+
+        .view-as-selector {
+            padding: 8px 16px;
+            border: 1px solid var(--border);
+            background: var(--bg);
+            border-radius: 6px;
+            font-weight: 500;
+        }
+
+        /* Multigenerational Tree Styles */
+        .family-tree {
+            position: relative;
+            min-height: 100%;
+            padding: 40px;
+        }
+
+        .generation-row {
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            margin-bottom: 120px;
+            position: relative;
+        }
+
+        .generation-label {
+            position: absolute;
+            left: 0;
+            top: 20px;
+            font-size: 12px;
+            color: var(--text-light);
+            font-weight: 600;
+            writing-mode: vertical-rl;
+            text-orientation: mixed;
+        }
+
+        .family-unit {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0 30px;
+            position: relative;
+        }
+
+        .couple {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            margin-bottom: 40px;
+            position: relative;
+        }
+
+        .couple::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 40px;
+            height: 2px;
+            background: #4CAF50;
+            z-index: 1;
+        }
+
+        .children-row {
+            display: flex;
+            gap: 40px;
+            justify-content: center;
+            position: relative;
+        }
+
+        .tree-node-name-always {
+            font-weight: 600;
+            font-size: 13px;
+            color: var(--primary);
+            white-space: nowrap;
+            margin-top: 8px;
+        }
     </style>
 </head>
 <body>
@@ -641,6 +729,7 @@
         class RootsApp {
             constructor() {
                 this.currentUser = null;
+                this.viewingAsUserId = null; // For perspective switching
                 this.users = [];
                 this.posts = [];
                 this.treeMembers = [];
@@ -649,18 +738,36 @@
                 this.contextNode = null;
                 this.selectedBaseNode = null;
                 this.zoomLevel = 1;
+                this.treeViewType = 'mindmap'; // 'mindmap' or 'generational'
                 this.init();
             }
 
             init() {
                 this.loadData();
+                this.checkInvitation();
                 this.checkAuth();
+            }
+
+            checkInvitation() {
+                const urlParams = new URLSearchParams(window.location.search);
+                const inviteCode = urlParams.get('invite');
+                const email = urlParams.get('email');
+                const fromName = urlParams.get('from');
+
+                if (inviteCode && email) {
+                    sessionStorage.setItem('pendingInvitation', JSON.stringify({
+                        code: inviteCode,
+                        email: email,
+                        fromName: fromName
+                    }));
+                }
             }
 
             checkAuth() {
                 const stored = localStorage.getItem('rootsCurrentUser');
                 if (stored) {
                     this.currentUser = JSON.parse(stored);
+                    this.viewingAsUserId = this.currentUser.id;
                     this.renderMainApp();
                     this.showApp();
                 } else {
@@ -669,16 +776,30 @@
             }
 
             renderAuthScreen() {
+                const pendingInvitation = sessionStorage.getItem('pendingInvitation');
+                let inviteBanner = '';
+                
+                if (pendingInvitation) {
+                    const invite = JSON.parse(pendingInvitation);
+                    inviteBanner = `
+                        <div class="invite-banner">
+                            <h3>🎉 You're Invited!</h3>
+                            <div>${invite.fromName} invited you to join their family tree</div>
+                        </div>
+                    `;
+                }
+
                 document.getElementById('app').innerHTML = `
                     <div class="auth-screen">
                         <div class="auth-box">
+                            ${inviteBanner}
                             <div class="logo-section">
                                 <h1>🌳 Roots</h1>
                                 <p>Your family's social network</p>
                             </div>
                             
                             <div id="loginForm">
-                                <input type="email" id="loginEmail" placeholder="Email">
+                                <input type="email" id="loginEmail" placeholder="Email" value="${pendingInvitation ? JSON.parse(pendingInvitation).email : ''}">
                                 <input type="password" id="loginPassword" placeholder="Password">
                                 <button onclick="app.login()" class="btn btn-primary">Log In</button>
                                 <div style="text-align: center; margin: 16px 0; color: var(--text-light); font-size: 14px;">OR</div>
@@ -687,7 +808,7 @@
 
                             <div id="signupForm" class="hidden">
                                 <input type="text" id="signupName" placeholder="Full Name">
-                                <input type="email" id="signupEmail" placeholder="Email">
+                                <input type="email" id="signupEmail" placeholder="Email" value="${pendingInvitation ? JSON.parse(pendingInvitation).email : ''}">
                                 <input type="password" id="signupPassword" placeholder="Password (min 6 characters)">
                                 <button onclick="app.signup()" class="btn btn-primary">Sign Up</button>
                                 <div style="text-align: center; margin: 16px 0; color: var(--text-light); font-size: 14px;">OR</div>
@@ -721,6 +842,7 @@
                 
                 if (user) {
                     this.currentUser = user;
+                    this.viewingAsUserId = user.id;
                     localStorage.setItem('rootsCurrentUser', JSON.stringify(user));
                     this.renderMainApp();
                     this.showApp();
@@ -760,8 +882,12 @@
 
                 this.users.push(newUser);
                 this.currentUser = newUser;
+                this.viewingAsUserId = newUser.id;
                 localStorage.setItem('rootsCurrentUser', JSON.stringify(newUser));
                 this.saveData();
+                
+                // Clear invitation
+                sessionStorage.removeItem('pendingInvitation');
                 
                 this.renderMainApp();
                 this.showApp();
@@ -813,6 +939,15 @@
 
                         <div id="fullTreePage" class="full-tree-view hidden">
                             <div class="tree-controls">
+                                <label>View Type:</label>
+                                <button class="control-btn" id="mindMapViewBtn" onclick="app.setTreeViewType('mindmap')" style="background: var(--primary); color: white;">Mind Map</button>
+                                <button class="control-btn" id="generationalViewBtn" onclick="app.setTreeViewType('generational')">Multigenerational</button>
+                                <span style="width: 20px;"></span>
+                                <label>View as:</label>
+                                <select id="viewAsSelect" class="view-as-selector" onchange="app.changeViewingPerspective()">
+                                    <option value="${this.currentUser.id}">Myself</option>
+                                </select>
+                                <span style="width: 20px;"></span>
                                 <button class="control-btn" onclick="app.zoomIn()">🔍+ Zoom In</button>
                                 <button class="control-btn" onclick="app.zoomOut()">🔍- Zoom Out</button>
                                 <button class="control-btn" onclick="app.resetZoom()">↺ Reset</button>
@@ -847,7 +982,7 @@
                         <div class="context-menu-item" onclick="app.contextAddSpouse()">Add Spouse</div>
                         <div class="context-menu-item" onclick="app.contextAddSibling()">Add Sibling</div>
                         <div class="context-menu-item" onclick="app.contextAddParent()">Add Parent</div>
-                        <div class="context-menu-item" onclick="app.contextMakeCenter()">Make Center Node</div>
+                        <div class="context-menu-item" onclick="app.contextViewAs()">View as this person</div>
                         <div class="context-menu-item" onclick="app.contextRemove()">Remove</div>
                     </div>
 
@@ -885,6 +1020,27 @@
                             <div>
                                 <label>Full Name *</label>
                                 <input type="text" id="familyMemberName" placeholder="Enter name" required>
+                            </div>
+
+                            <div>
+                                <label>Email (Optional - for invitation)</label>
+                                <input type="email" id="familyMemberEmail" placeholder="their@email.com">
+                                <p style="font-size: 12px; color: var(--text-light); margin-top: 4px;">
+                                    If provided, an invitation link will be generated
+                                </p>
+                            </div>
+
+                            <div id="inviteLinkSection" class="hidden" style="margin-bottom: 20px;">
+                                <label>Invitation Link</label>
+                                <div style="display: flex; gap: 8px;">
+                                    <input type="text" id="generatedInviteLink" readonly style="background: var(--card); font-size: 12px;">
+                                    <button class="btn-secondary" onclick="app.copyInviteLink()" style="width: auto; padding: 12px 20px;">
+                                        📋 Copy
+                                    </button>
+                                </div>
+                                <p style="font-size: 12px; color: #4CAF50; margin-top: 4px;">
+                                    ✓ Share this link to invite them
+                                </p>
                             </div>
 
                             <div>
@@ -995,7 +1151,7 @@
                             document.getElementById('profileAvatar').src = this.currentUser.avatar;
                             
                             // Update in tree
-                            const treeMember = this.treeMembers.find(m => m.userId === this.currentUser.id && m.ownerId === this.currentUser.id);
+                            const treeMember = this.treeMembers.find(m => m.userId === this.currentUser.id);
                             if (treeMember) {
                                 treeMember.avatar = this.currentUser.avatar;
                                 this.saveData();
@@ -1003,6 +1159,16 @@
                             }
                         };
                         reader.readAsDataURL(file);
+                    }
+                });
+
+                // Email field for invitation link
+                document.getElementById('familyMemberEmail')?.addEventListener('input', (e) => {
+                    const email = e.target.value.trim();
+                    if (email && email.includes('@')) {
+                        this.generateInviteLink(email);
+                    } else {
+                        document.getElementById('inviteLinkSection')?.classList.add('hidden');
                     }
                 });
 
@@ -1014,10 +1180,39 @@
                 });
             }
 
+            generateInviteLink(email) {
+                const inviteCode = btoa(email + '_' + Date.now()).substring(0, 16);
+                const inviteLink = `${window.location.origin}${window.location.pathname}?invite=${inviteCode}&email=${encodeURIComponent(email)}&from=${encodeURIComponent(this.currentUser.name)}`;
+                
+                document.getElementById('generatedInviteLink').value = inviteLink;
+                document.getElementById('inviteLinkSection')?.classList.remove('hidden');
+                
+                // Store invitation
+                const invitations = JSON.parse(localStorage.getItem('rootsInvitations') || '[]');
+                invitations.push({
+                    code: inviteCode,
+                    email: email,
+                    fromUserId: this.currentUser.id,
+                    fromUserName: this.currentUser.name,
+                    createdAt: new Date().toISOString()
+                });
+                localStorage.setItem('rootsInvitations', JSON.stringify(invitations));
+            }
+
+            copyInviteLink() {
+                const linkField = document.getElementById('generatedInviteLink');
+                linkField.select();
+                linkField.setSelectionRange(0, 99999);
+                document.execCommand('copy');
+                alert('Invitation link copied!');
+            }
+
             showApp() {
-                // Initialize tree for this user
-                const userTree = this.treeMembers.filter(m => m.ownerId === this.currentUser.id);
-                if (userTree.length === 0) {
+                // Find tree member for current user
+                let userTreeMember = this.treeMembers.find(m => m.userId === this.currentUser.id);
+                
+                // If not exists, create root node
+                if (!userTreeMember) {
                     this.addSelfToTree();
                 }
                 
@@ -1025,17 +1220,18 @@
             }
 
             addSelfToTree() {
-                const rootId = 'root_' + this.currentUser.id;
+                const rootId = 'node_' + this.currentUser.id + '_root';
                 
                 const member = {
                     id: rootId,
-                    ownerId: this.currentUser.id,
                     userId: this.currentUser.id,
                     name: this.currentUser.name,
                     avatar: this.currentUser.avatar,
-                    relationshipType: 'You',
-                    degree: '0',
                     isDeceased: false,
+                    parents: [],
+                    spouses: [],
+                    children: [],
+                    siblings: [],
                     addedAt: new Date().toISOString()
                 };
                 
@@ -1059,6 +1255,7 @@
                 document.getElementById('profilePage')?.classList.add('hidden');
                 
                 this.setActiveTab('treeTab');
+                this.populateViewAsDropdown();
                 this.renderTree('fullTreeView');
             }
 
@@ -1076,13 +1273,55 @@
                 document.getElementById(tabId)?.classList.add('active');
             }
 
+            setTreeViewType(type) {
+                this.treeViewType = type;
+                
+                // Update button styles
+                if (type === 'mindmap') {
+                    document.getElementById('mindMapViewBtn').style.background = 'var(--primary)';
+                    document.getElementById('mindMapViewBtn').style.color = 'white';
+                    document.getElementById('generationalViewBtn').style.background = 'var(--bg)';
+                    document.getElementById('generationalViewBtn').style.color = 'var(--text)';
+                } else {
+                    document.getElementById('generationalViewBtn').style.background = 'var(--primary)';
+                    document.getElementById('generationalViewBtn').style.color = 'white';
+                    document.getElementById('mindMapViewBtn').style.background = 'var(--bg)';
+                    document.getElementById('mindMapViewBtn').style.color = 'var(--text)';
+                }
+                
+                this.renderTree('fullTreeView');
+            }
+
+            populateViewAsDropdown() {
+                const select = document.getElementById('viewAsSelect');
+                if (!select) return;
+
+                select.innerHTML = '';
+                
+                this.treeMembers.forEach(member => {
+                    const option = document.createElement('option');
+                    option.value = member.userId || member.id;
+                    const viewingMember = this.treeMembers.find(m => m.userId === this.viewingAsUserId);
+                    const relation = this.getRelationshipLabel(viewingMember, member);
+                    option.textContent = member.name + (relation ? ` (${relation})` : '');
+                    if (member.userId === this.viewingAsUserId || member.id === this.viewingAsUserId) {
+                        option.selected = true;
+                    }
+                    select.appendChild(option);
+                });
+            }
+
+            changeViewingPerspective() {
+                const select = document.getElementById('viewAsSelect');
+                this.viewingAsUserId = select.value;
+                this.renderTree('fullTreeView');
+            }
+
             renderTree(containerId) {
                 const container = document.getElementById(containerId);
                 if (!container) return;
 
-                const userTree = this.treeMembers.filter(m => m.ownerId === this.currentUser.id);
-                
-                if (userTree.length === 0) {
+                if (this.treeMembers.length === 0) {
                     container.innerHTML = `
                         <div class="empty-state">
                             <div style="font-size: 4em; margin-bottom: 16px; opacity: 0.3;">🌳</div>
@@ -1093,55 +1332,76 @@
                     return;
                 }
 
-                const root = userTree.find(m => m.degree === '0');
-                if (!root) return;
-
-                // Position nodes
-                const positions = {};
-                positions[root.id] = { x: 400, y: 300 };
-
-                // Parents (top)
-                const parents = userTree.filter(m => m.degree.startsWith('-1'));
-                parents.forEach((p, i) => {
-                    positions[p.id] = { x: 300 + (i * 200), y: 100 };
-                });
-
-                // Spouse (right)
-                const spouse = userTree.find(m => m.degree === '0.spouse');
-                if (spouse) {
-                    positions[spouse.id] = { x: 550, y: 300 };
+                // Check if we're in the fullTreeView and what view type to use
+                if (containerId === 'fullTreeView' && this.treeViewType === 'generational') {
+                    this.renderGenerationalTree(containerId);
+                } else {
+                    this.renderMindMapTree(containerId);
                 }
+            }
 
-                // Siblings (left)
-                const siblings = userTree.filter(m => m.degree.match(/^0\.[a-z]$/));
-                siblings.forEach((s, i) => {
-                    positions[s.id] = { x: 150, y: 200 + (i * 80) };
-                });
+            renderMindMapTree(containerId) {
+                const container = document.getElementById(containerId);
+                if (!container) return;
 
-                // Children (bottom)
-                const children = userTree.filter(m => m.degree.match(/^1\.\d+$/));
-                children.forEach((c, i) => {
-                    positions[c.id] = { x: 250 + (i * 150), y: 500 };
-                });
+                // Find the viewing person
+                const viewingPerson = this.treeMembers.find(m => 
+                    m.userId === this.viewingAsUserId || m.id === this.viewingAsUserId
+                );
 
-                // Create SVG lines
-                let svg = '<svg class="tree-svg" width="800" height="600">';
+                if (!viewingPerson) return;
+
+                // Calculate positions
+                const positions = this.calculateTreePositions(viewingPerson);
+
+                // Create curved SVG lines with proper viewBox
+                let svg = '<svg class="tree-svg" viewBox="0 0 800 600" preserveAspectRatio="xMidYMid meet" style="width: 100%; height: 100%;">';
                 
-                // Draw lines from root to relatives
-                parents.forEach(p => {
-                    svg += this.drawLine(positions[root.id], positions[p.id]);
-                });
+                console.log('Drawing connections for', this.treeMembers.length, 'members');
                 
-                if (spouse) {
-                    svg += this.drawLine(positions[root.id], positions[spouse.id]);
-                }
-                
-                siblings.forEach(s => {
-                    svg += this.drawLine(positions[root.id], positions[s.id]);
-                });
-                
-                children.forEach(c => {
-                    svg += this.drawLine(positions[root.id], positions[c.id]);
+                // Draw connections
+                this.treeMembers.forEach(member => {
+                    if (!positions[member.id]) return;
+
+                    // Draw to spouses
+                    if (member.spouses && member.spouses.length > 0) {
+                        member.spouses.forEach(spouseId => {
+                            if (positions[spouseId]) {
+                                console.log('Drawing spouse line from', member.name, 'to', spouseId);
+                                svg += this.drawCurvedLine(positions[member.id], positions[spouseId], '#4CAF50', 3);
+                            }
+                        });
+                    }
+
+                    // Draw to children
+                    if (member.children && member.children.length > 0) {
+                        member.children.forEach(childId => {
+                            if (positions[childId]) {
+                                console.log('Drawing child line from', member.name, 'to', childId);
+                                svg += this.drawCurvedLine(positions[member.id], positions[childId], '#2196F3', 2);
+                            }
+                        });
+                    }
+
+                    // Draw to parents
+                    if (member.parents && member.parents.length > 0) {
+                        member.parents.forEach(parentId => {
+                            if (positions[parentId]) {
+                                console.log('Drawing parent line from', member.name, 'to', parentId);
+                                svg += this.drawCurvedLine(positions[member.id], positions[parentId], '#FF9800', 2);
+                            }
+                        });
+                    }
+
+                    // Draw to siblings (only once per pair)
+                    if (member.siblings && member.siblings.length > 0) {
+                        member.siblings.forEach(siblingId => {
+                            if (positions[siblingId] && member.id < siblingId) {
+                                console.log('Drawing sibling line from', member.name, 'to', siblingId);
+                                svg += this.drawCurvedLine(positions[member.id], positions[siblingId], '#9C27B0', 2);
+                            }
+                        });
+                    }
                 });
                 
                 svg += '</svg>';
@@ -1149,9 +1409,11 @@
                 // Create nodes
                 let html = '<div class="mind-map-tree">' + svg + '<div class="tree-nodes-container">';
                 
-                userTree.forEach(member => {
+                this.treeMembers.forEach(member => {
                     if (positions[member.id]) {
-                        html += this.renderNode(member, positions[member.id], member.degree === '0');
+                        const isCurrentUser = member.id === viewingPerson.id;
+                        const relationToViewer = this.getRelationshipLabel(viewingPerson, member);
+                        html += this.renderNode(member, positions[member.id], isCurrentUser, relationToViewer);
                     }
                 });
                 
@@ -1159,25 +1421,393 @@
                 container.innerHTML = html;
             }
 
-            drawLine(from, to) {
-                return `<line x1="${from.x + 25}" y1="${from.y + 25}" x2="${to.x + 25}" y2="${to.y + 25}" 
-                        stroke="#e8e8e8" stroke-width="2" />`;
+            getRelationshipLabel(viewingPerson, targetPerson) {
+                if (!viewingPerson || !targetPerson) return 'Family';
+                if (viewingPerson.id === targetPerson.id) return 'You';
+
+                // Direct relationships first
+                // Check if spouse
+                if (viewingPerson.spouses && viewingPerson.spouses.includes(targetPerson.id)) {
+                    return 'Spouse';
+                }
+
+                // Check if parent
+                if (viewingPerson.parents && viewingPerson.parents.includes(targetPerson.id)) {
+                    // Determine if mother or father based on gender or just say Parent
+                    return 'Parent';
+                }
+
+                // Check if child
+                if (viewingPerson.children && viewingPerson.children.includes(targetPerson.id)) {
+                    return 'Child';
+                }
+
+                // Check if sibling
+                if (viewingPerson.siblings && viewingPerson.siblings.includes(targetPerson.id)) {
+                    return 'Sibling';
+                }
+
+                // Extended relationships
+                // Grandparent (parent's parent)
+                if (viewingPerson.parents && viewingPerson.parents.length > 0) {
+                    for (let parentId of viewingPerson.parents) {
+                        const parent = this.treeMembers.find(m => m.id === parentId);
+                        if (parent && parent.parents && parent.parents.includes(targetPerson.id)) {
+                            return 'Grandparent';
+                        }
+                    }
+                }
+
+                // Grandchild (child's child)
+                if (viewingPerson.children && viewingPerson.children.length > 0) {
+                    for (let childId of viewingPerson.children) {
+                        const child = this.treeMembers.find(m => m.id === childId);
+                        if (child && child.children && child.children.includes(targetPerson.id)) {
+                            return 'Grandchild';
+                        }
+                    }
+                }
+
+                // Uncle/Aunt (parent's sibling)
+                if (viewingPerson.parents && viewingPerson.parents.length > 0) {
+                    for (let parentId of viewingPerson.parents) {
+                        const parent = this.treeMembers.find(m => m.id === parentId);
+                        if (parent && parent.siblings && parent.siblings.includes(targetPerson.id)) {
+                            return 'Uncle/Aunt';
+                        }
+                    }
+                }
+
+                // Nephew/Niece (sibling's child)
+                if (viewingPerson.siblings && viewingPerson.siblings.length > 0) {
+                    for (let siblingId of viewingPerson.siblings) {
+                        const sibling = this.treeMembers.find(m => m.id === siblingId);
+                        if (sibling && sibling.children && sibling.children.includes(targetPerson.id)) {
+                            return 'Nephew/Niece';
+                        }
+                    }
+                }
+
+                // Cousin (parent's sibling's child)
+                if (viewingPerson.parents && viewingPerson.parents.length > 0) {
+                    for (let parentId of viewingPerson.parents) {
+                        const parent = this.treeMembers.find(m => m.id === parentId);
+                        if (parent && parent.siblings && parent.siblings.length > 0) {
+                            for (let uncleAuntId of parent.siblings) {
+                                const uncleAunt = this.treeMembers.find(m => m.id === uncleAuntId);
+                                if (uncleAunt && uncleAunt.children && uncleAunt.children.includes(targetPerson.id)) {
+                                    return 'Cousin';
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // In-laws (spouse's family)
+                if (viewingPerson.spouses && viewingPerson.spouses.length > 0) {
+                    for (let spouseId of viewingPerson.spouses) {
+                        const spouse = this.treeMembers.find(m => m.id === spouseId);
+                        if (!spouse) continue;
+
+                        // Spouse's parent = In-law parent
+                        if (spouse.parents && spouse.parents.includes(targetPerson.id)) {
+                            return 'Parent-in-Law';
+                        }
+
+                        // Spouse's sibling = In-law sibling
+                        if (spouse.siblings && spouse.siblings.includes(targetPerson.id)) {
+                            return 'Sibling-in-Law';
+                        }
+
+                        // Spouse's child (not yours) = Step-child
+                        if (spouse.children && spouse.children.includes(targetPerson.id)) {
+                            if (!viewingPerson.children || !viewingPerson.children.includes(targetPerson.id)) {
+                                return 'Step-child';
+                            }
+                        }
+                    }
+                }
+
+                // Child's spouse = In-law child
+                if (viewingPerson.children && viewingPerson.children.length > 0) {
+                    for (let childId of viewingPerson.children) {
+                        const child = this.treeMembers.find(m => m.id === childId);
+                        if (child && child.spouses && child.spouses.includes(targetPerson.id)) {
+                            return 'Child-in-Law';
+                        }
+                    }
+                }
+
+                return 'Family';
             }
 
-            renderNode(person, position, isRoot) {
-                const deceasedClass = person.isDeceased ? 'deceased' : '';
-                const rootClass = isRoot ? 'root' : '';
+            renderGenerationalTree(containerId) {
+                const container = document.getElementById(containerId);
+                if (!container) return;
+
+                // Calculate generations for each member
+                this.calculateGenerations();
+
+                // Group members by generation
+                const generations = {};
+                this.treeMembers.forEach(member => {
+                    const gen = member.generation || 0;
+                    if (!generations[gen]) generations[gen] = [];
+                    generations[gen].push(member);
+                });
+
+                // Sort generations (highest ancestors to lowest descendants)
+                const sortedGens = Object.keys(generations).map(Number).sort((a, b) => a - b);
+
+                let html = '<div class="family-tree">';
+
+                sortedGens.forEach(genNum => {
+                    const members = generations[genNum];
+                    const genLabel = genNum < 0 ? `Generation ${Math.abs(genNum)} (Ancestors)` :
+                                    genNum > 0 ? `Generation +${genNum} (Descendants)` :
+                                    'Your Generation';
+
+                    html += `<div class="generation-row">`;
+                    html += `<div class="generation-label">${genLabel}</div>`;
+
+                    // Group by family units
+                    const processed = new Set();
+                    members.forEach(member => {
+                        if (processed.has(member.id)) return;
+
+                        html += `<div class="family-unit">`;
+                        html += `<div class="couple">`;
+                        
+                        // Render person
+                        html += this.renderGenerationalNode(member, member.userId === this.viewingAsUserId || member.id === this.viewingAsUserId);
+                        processed.add(member.id);
+
+                        // Render spouse if exists
+                        if (member.spouses && member.spouses.length > 0) {
+                            const spouseId = member.spouses[0];
+                            const spouse = this.treeMembers.find(m => m.id === spouseId);
+                            if (spouse) {
+                                html += this.renderGenerationalNode(spouse, spouse.userId === this.viewingAsUserId || spouse.id === this.viewingAsUserId);
+                                processed.add(spouse.id);
+                            }
+                        }
+
+                        html += `</div>`; // Close couple
+
+                        // Show connector to children
+                        if (member.children && member.children.length > 0) {
+                            const childrenInNextGen = member.children.filter(childId => {
+                                const child = this.treeMembers.find(m => m.id === childId);
+                                return child && child.generation === genNum + 1;
+                            });
+                            
+                            if (childrenInNextGen.length > 0) {
+                                html += `<div style="width: 2px; height: 30px; background: var(--border); margin: 0 auto;"></div>`;
+                            }
+                        }
+
+                        html += `</div>`; // Close family-unit
+                    });
+
+                    html += `</div>`; // Close generation-row
+                });
+
+                html += '</div>';
+                container.innerHTML = html;
+            }
+
+            renderGenerationalNode(member, isCurrentUser) {
+                const deceasedClass = member.isDeceased ? 'deceased' : '';
+                const currentUserClass = isCurrentUser ? 'current-user' : '';
                 
                 return `
-                    <div class="tree-node ${deceasedClass} ${rootClass}" 
+                    <div class="tree-node ${deceasedClass} ${currentUserClass}" 
+                         data-id="${member.id}"
+                         oncontextmenu="app.showContextMenu(event, '${member.id}'); return false;">
+                        <img src="${member.avatar}" class="tree-node-avatar" alt="${member.name}">
+                        <div class="tree-node-name-always">${member.name}</div>
+                    </div>
+                `;
+            }
+
+            calculateGenerations() {
+                // Reset all generations
+                this.treeMembers.forEach(member => {
+                    member.generation = undefined;
+                });
+
+                // Find the viewing person
+                const viewingPerson = this.treeMembers.find(m => 
+                    m.userId === this.viewingAsUserId || m.id === this.viewingAsUserId
+                );
+
+                if (!viewingPerson) return;
+
+                // Set viewing person to generation 0
+                viewingPerson.generation = 0;
+
+                // Recursive function to set generations
+                const setGeneration = (personId, generation) => {
+                    const person = this.treeMembers.find(m => m.id === personId);
+                    if (!person) return;
+                    
+                    // Only set if not set or if new generation is different
+                    if (person.generation !== undefined && person.generation !== generation) return;
+                    person.generation = generation;
+
+                    // Parents are one generation up
+                    if (person.parents && person.parents.length > 0) {
+                        person.parents.forEach(parentId => setGeneration(parentId, generation - 1));
+                    }
+
+                    // Children are one generation down
+                    if (person.children && person.children.length > 0) {
+                        person.children.forEach(childId => setGeneration(childId, generation + 1));
+                    }
+
+                    // Spouses are in the same generation
+                    if (person.spouses && person.spouses.length > 0) {
+                        person.spouses.forEach(spouseId => {
+                            const spouse = this.treeMembers.find(m => m.id === spouseId);
+                            if (spouse && spouse.generation === undefined) {
+                                spouse.generation = generation;
+                            }
+                        });
+                    }
+
+                    // Siblings are in the same generation
+                    if (person.siblings && person.siblings.length > 0) {
+                        person.siblings.forEach(siblingId => {
+                            const sibling = this.treeMembers.find(m => m.id === siblingId);
+                            if (sibling && sibling.generation === undefined) {
+                                sibling.generation = generation;
+                            }
+                        });
+                    }
+                };
+
+                setGeneration(viewingPerson.id, 0);
+            }
+
+            calculateTreePositions(centerPerson) {
+                const positions = {};
+                const centerX = 400;
+                const centerY = 300;
+                
+                // Place center person
+                positions[centerPerson.id] = { x: centerX, y: centerY };
+
+                // Place parents above
+                if (centerPerson.parents) {
+                    centerPerson.parents.forEach((parentId, i) => {
+                        positions[parentId] = {
+                            x: centerX - 150 + (i * 300),
+                            y: centerY - 150
+                        };
+                    });
+                }
+
+                // Place spouses beside
+                if (centerPerson.spouses) {
+                    centerPerson.spouses.forEach((spouseId, i) => {
+                        positions[spouseId] = {
+                            x: centerX + 200 + (i * 150),
+                            y: centerY
+                        };
+                    });
+                }
+
+                // Place children below
+                if (centerPerson.children) {
+                    const childCount = centerPerson.children.length;
+                    const startX = centerX - ((childCount - 1) * 100);
+                    centerPerson.children.forEach((childId, i) => {
+                        positions[childId] = {
+                            x: startX + (i * 200),
+                            y: centerY + 150
+                        };
+                    });
+                }
+
+                // Place siblings to the side
+                if (centerPerson.siblings) {
+                    centerPerson.siblings.forEach((siblingId, i) => {
+                        positions[siblingId] = {
+                            x: centerX - 250,
+                            y: centerY - 80 + (i * 100)
+                        };
+                    });
+                }
+
+                // Place extended family members
+                this.treeMembers.forEach(member => {
+                    if (!positions[member.id]) {
+                        // Position near a related person
+                        const relatedId = this.findClosestRelated(member, positions);
+                        if (relatedId && positions[relatedId]) {
+                            positions[member.id] = {
+                                x: positions[relatedId].x + 150,
+                                y: positions[relatedId].y + 100
+                            };
+                        } else {
+                            // Default positioning
+                            const count = Object.keys(positions).length;
+                            positions[member.id] = {
+                                x: 100 + (count % 6) * 140,
+                                y: 100 + Math.floor(count / 6) * 120
+                            };
+                        }
+                    }
+                });
+
+                return positions;
+            }
+
+            findClosestRelated(member, positions) {
+                const allRelations = [
+                    ...(member.parents || []),
+                    ...(member.spouses || []),
+                    ...(member.children || []),
+                    ...(member.siblings || [])
+                ];
+                
+                for (let relId of allRelations) {
+                    if (positions[relId]) return relId;
+                }
+                
+                return null;
+            }
+
+            drawCurvedLine(from, to, color, strokeWidth = 2) {
+                const x1 = from.x + 25;
+                const y1 = from.y + 25;
+                const x2 = to.x + 25;
+                const y2 = to.y + 25;
+                
+                // Calculate control point for curve
+                const dx = x2 - x1;
+                const dy = y2 - y1;
+                const cx = x1 + dx / 2;
+                const cy = y1 + dy / 2 + Math.abs(dx) * 0.2;
+                
+                return `<path d="M ${x1} ${y1} Q ${cx} ${cy} ${x2} ${y2}" 
+                        stroke="${color}" stroke-width="${strokeWidth}" fill="none" 
+                        stroke-linecap="round"/>`;
+            }
+
+            renderNode(person, position, isCurrentUser, relationLabel) {
+                const deceasedClass = person.isDeceased ? 'deceased' : '';
+                const currentUserClass = isCurrentUser ? 'current-user' : '';
+                
+                return `
+                    <div class="tree-node ${deceasedClass} ${currentUserClass}" 
                          style="left: ${position.x}px; top: ${position.y}px;"
                          data-id="${person.id}"
                          oncontextmenu="app.showContextMenu(event, '${person.id}'); return false;">
                         <img src="${person.avatar}" class="tree-node-avatar" alt="${person.name}">
                         <div class="tree-node-info">
                             <div class="tree-node-name">${person.name}</div>
-                            <div class="tree-node-relation">${person.relationshipType}</div>
-                            <div class="tree-node-degree">Degree: ${person.degree}</div>
+                            <div class="tree-node-relation">${relationLabel}</div>
                         </div>
                     </div>
                 `;
@@ -1223,12 +1853,10 @@
                 this.showAddFamilyMember();
             }
 
-            contextMakeCenter() {
+            contextViewAs() {
                 const member = this.treeMembers.find(m => m.id === this.contextNode);
                 if (member) {
-                    // Recalculate degrees with this person as center
-                    this.recalculateDegreesFromNode(this.contextNode);
-                    this.saveData();
+                    this.viewingAsUserId = member.userId || member.id;
                     this.renderTree('homeTreeView');
                     this.renderTree('fullTreeView');
                 }
@@ -1237,7 +1865,7 @@
 
             contextRemove() {
                 const member = this.treeMembers.find(m => m.id === this.contextNode);
-                if (member && member.degree !== '0') {
+                if (member && !member.userId) {
                     if (confirm(`Remove ${member.name} from family tree?`)) {
                         this.treeMembers = this.treeMembers.filter(m => m.id !== this.contextNode);
                         this.saveData();
@@ -1248,27 +1876,15 @@
                 document.getElementById('contextMenu').classList.remove('active');
             }
 
-            recalculateDegreesFromNode(newCenterId) {
-                // This would require complex logic to recalculate all degrees
-                // For now, just update the selected node to degree 0
-                const userTree = this.treeMembers.filter(m => m.ownerId === this.currentUser.id);
-                userTree.forEach(member => {
-                    if (member.id === newCenterId) {
-                        member.degree = '0';
-                    }
-                });
-            }
-
             showAddFamilyMember() {
                 // Populate base node selector
                 const select = document.getElementById('baseNodeSelect');
-                const userTree = this.treeMembers.filter(m => m.ownerId === this.currentUser.id);
                 
                 select.innerHTML = '<option value="">Select person...</option>';
-                userTree.forEach(member => {
+                this.treeMembers.forEach(member => {
                     const option = document.createElement('option');
                     option.value = member.id;
-                    option.textContent = `${member.name} (${member.relationshipType})`;
+                    option.textContent = member.name;
                     if (this.selectedBaseNode === member.id) {
                         option.selected = true;
                     }
@@ -1301,100 +1917,175 @@
                 }
 
                 const avatar = this.currentFamilyMemberPhoto || this.getDefaultAvatar(name);
-                const degree = this.calculateDegree(baseNodeId, relationship);
 
-                const member = {
-                    id: 'member_' + Date.now(),
-                    ownerId: this.currentUser.id,
+                const newMember = {
+                    id: 'node_' + Date.now(),
                     userId: null,
                     name: name,
                     avatar: avatar,
-                    relationshipType: this.formatRelationshipType(relationship),
-                    degree: degree,
                     birthYear: birthYear || null,
                     isDeceased: isDeceased,
+                    parents: [],
+                    spouses: [],
+                    children: [],
+                    siblings: [],
                     addedAt: new Date().toISOString()
                 };
 
-                this.treeMembers.push(member);
+                // Update relationships bidirectionally
+                const basePerson = this.treeMembers.find(m => m.id === baseNodeId);
+                if (!basePerson) {
+                    alert('Base person not found');
+                    return;
+                }
+
+                console.log('Adding', name, 'as', relationship, 'to', basePerson.name);
+                console.log('Base person before:', JSON.parse(JSON.stringify(basePerson)));
+
+                if (relationship === 'son' || relationship === 'daughter') {
+                    // Adding child to base person
+                    if (!basePerson.children) basePerson.children = [];
+                    basePerson.children.push(newMember.id);
+                    newMember.parents.push(baseNodeId);
+
+                    console.log('Added child. Base person children:', basePerson.children);
+                    console.log('New member parents:', newMember.parents);
+
+                    // If base person has spouse, add as parent too
+                    if (basePerson.spouses && basePerson.spouses.length > 0) {
+                        newMember.parents.push(basePerson.spouses[0]);
+                        const spouse = this.treeMembers.find(m => m.id === basePerson.spouses[0]);
+                        if (spouse) {
+                            if (!spouse.children) spouse.children = [];
+                            spouse.children.push(newMember.id);
+                            console.log('Added to spouse children:', spouse.name);
+                        }
+                    }
+
+                    // Add as sibling to existing children
+                    basePerson.children.forEach(childId => {
+                        if (childId !== newMember.id) {
+                            const child = this.treeMembers.find(m => m.id === childId);
+                            if (child) {
+                                if (!child.siblings) child.siblings = [];
+                                if (!child.siblings.includes(newMember.id)) {
+                                    child.siblings.push(newMember.id);
+                                    newMember.siblings.push(childId);
+                                    console.log('Added sibling relationship with:', child.name);
+                                }
+                            }
+                        }
+                    });
+
+                } else if (relationship === 'husband' || relationship === 'wife') {
+                    // Adding spouse
+                    if (!basePerson.spouses) basePerson.spouses = [];
+                    basePerson.spouses.push(newMember.id);
+                    newMember.spouses.push(baseNodeId);
+
+                    console.log('Added spouse. Base person spouses:', basePerson.spouses);
+                    console.log('New member spouses:', newMember.spouses);
+
+                    // Share children
+                    if (basePerson.children && basePerson.children.length > 0) {
+                        newMember.children = [...basePerson.children];
+                        basePerson.children.forEach(childId => {
+                            const child = this.treeMembers.find(m => m.id === childId);
+                            if (child) {
+                                if (!child.parents) child.parents = [];
+                                if (!child.parents.includes(newMember.id)) {
+                                    child.parents.push(newMember.id);
+                                    console.log('Added as parent to child:', child.name);
+                                }
+                            }
+                        });
+                    }
+
+                } else if (relationship === 'father' || relationship === 'mother') {
+                    // Adding parent
+                    if (!basePerson.parents) basePerson.parents = [];
+                    basePerson.parents.push(newMember.id);
+                    newMember.children.push(baseNodeId);
+
+                    console.log('Added parent. Base person parents:', basePerson.parents);
+                    console.log('New member children:', newMember.children);
+
+                    // Share siblings (make all siblings children of this parent)
+                    if (basePerson.siblings && basePerson.siblings.length > 0) {
+                        basePerson.siblings.forEach(siblingId => {
+                            const sibling = this.treeMembers.find(m => m.id === siblingId);
+                            if (sibling) {
+                                if (!sibling.parents) sibling.parents = [];
+                                if (!sibling.parents.includes(newMember.id)) {
+                                    sibling.parents.push(newMember.id);
+                                    newMember.children.push(siblingId);
+                                    console.log('Added as parent to sibling:', sibling.name);
+                                }
+                            }
+                        });
+                    }
+
+                } else if (relationship === 'brother' || relationship === 'sister') {
+                    // Adding sibling
+                    if (!basePerson.siblings) basePerson.siblings = [];
+                    basePerson.siblings.push(newMember.id);
+                    newMember.siblings.push(baseNodeId);
+
+                    console.log('Added sibling. Base person siblings:', basePerson.siblings);
+                    console.log('New member siblings:', newMember.siblings);
+
+                    // Share parents
+                    if (basePerson.parents && basePerson.parents.length > 0) {
+                        newMember.parents = [...basePerson.parents];
+                        basePerson.parents.forEach(parentId => {
+                            const parent = this.treeMembers.find(m => m.id === parentId);
+                            if (parent) {
+                                if (!parent.children) parent.children = [];
+                                if (!parent.children.includes(newMember.id)) {
+                                    parent.children.push(newMember.id);
+                                    console.log('Added to parent children:', parent.name);
+                                }
+                            }
+                        });
+                    }
+
+                    // Connect to other siblings
+                    if (basePerson.siblings && basePerson.siblings.length > 0) {
+                        basePerson.siblings.forEach(siblingId => {
+                            if (siblingId !== newMember.id) {
+                                const sibling = this.treeMembers.find(m => m.id === siblingId);
+                                if (sibling) {
+                                    if (!sibling.siblings) sibling.siblings = [];
+                                    if (!sibling.siblings.includes(newMember.id)) {
+                                        sibling.siblings.push(newMember.id);
+                                        newMember.siblings.push(siblingId);
+                                        console.log('Connected sibling:', sibling.name);
+                                    }
+                                }
+                            }
+                        });
+                    }
+                }
+
+                console.log('Final new member:', newMember);
+                console.log('All tree members:', this.treeMembers.length);
+
+                this.treeMembers.push(newMember);
                 this.saveData();
                 this.closeAddFamilyMember();
                 this.renderTree('homeTreeView');
                 this.renderTree('fullTreeView');
             }
 
-            calculateDegree(baseNodeId, relationship) {
-                const baseNode = this.treeMembers.find(m => m.id === baseNodeId);
-                if (!baseNode) return '0';
-
-                const baseDegree = baseNode.degree;
-                const userTree = this.treeMembers.filter(m => m.ownerId === this.currentUser.id);
-
-                // Calculate based on base node's degree and relationship
-                if (baseDegree === '0') {
-                    // Adding to root
-                    switch(relationship) {
-                        case 'father':
-                        case 'mother':
-                            const parentCount = userTree.filter(m => m.degree.startsWith('-1')).length;
-                            return '-1' + (parentCount > 0 ? '.' + String.fromCharCode(97 + parentCount) : '');
-                        
-                        case 'husband':
-                        case 'wife':
-                            return '0.spouse';
-                        
-                        case 'son':
-                        case 'daughter':
-                            const childCount = userTree.filter(m => m.degree.match(/^1\.\d+$/)).length;
-                            return '1.' + (childCount + 1);
-                        
-                        case 'brother':
-                        case 'sister':
-                            const siblingCount = userTree.filter(m => m.degree.match(/^0\.[a-z]$/)).length;
-                            return '0.' + String.fromCharCode(97 + siblingCount);
-                    }
-                } else {
-                    // Adding to non-root node - calculate relative to base
-                    switch(relationship) {
-                        case 'son':
-                        case 'daughter':
-                            return baseDegree + '.1';
-                        case 'husband':
-                        case 'wife':
-                            return baseDegree + '.spouse';
-                        case 'brother':
-                        case 'sister':
-                            return baseDegree + '.sibling';
-                        case 'father':
-                        case 'mother':
-                            return baseDegree + '.parent';
-                    }
-                }
-                
-                return '0';
-            }
-
-            formatRelationshipType(relationship) {
-                const formatted = {
-                    'father': 'Father',
-                    'mother': 'Mother',
-                    'husband': 'Husband',
-                    'wife': 'Wife',
-                    'son': 'Son',
-                    'daughter': 'Daughter',
-                    'brother': 'Brother',
-                    'sister': 'Sister'
-                };
-                return formatted[relationship] || relationship;
-            }
-
             resetFamilyMemberForm() {
                 document.getElementById('familyMemberName').value = '';
+                document.getElementById('familyMemberEmail').value = '';
                 document.getElementById('familyMemberRelationship').value = '';
                 document.getElementById('familyMemberBirthYear').value = '';
                 document.getElementById('familyMemberDeceased').checked = false;
                 document.getElementById('familyMemberPhotoPreview').style.display = 'none';
                 document.getElementById('familyMemberPhotoPlaceholder').style.display = 'flex';
+                document.getElementById('inviteLinkSection')?.classList.add('hidden');
                 this.currentFamilyMemberPhoto = null;
                 this.selectedBaseNode = null;
             }
@@ -1530,9 +2221,8 @@
 
             renderProfile() {
                 const userPosts = this.posts.filter(p => p.userId === this.currentUser.id);
-                const userTree = this.treeMembers.filter(m => m.ownerId === this.currentUser.id);
                 
-                document.getElementById('familyCount').textContent = userTree.length;
+                document.getElementById('familyCount').textContent = this.treeMembers.length;
                 document.getElementById('postCount').textContent = userPosts.length;
                 document.getElementById('profilePosts').innerHTML = userPosts.map(p => this.renderPost(p)).join('') || 
                     '<div class="card" style="text-align: center; padding: 40px; color: var(--text-light);">No posts yet</div>';
