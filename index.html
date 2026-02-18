@@ -833,6 +833,93 @@
             margin-bottom: 10px;
         }
 
+        /* Traditional Family Tree Styles */
+        .traditional-tree {
+            padding: 80px 60px;
+            min-width: 100%;
+            position: relative;
+        }
+
+        .tree-generation {
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            margin-bottom: 150px;
+            position: relative;
+            gap: 100px;
+            flex-wrap: nowrap;
+        }
+
+        .tree-family-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+            min-width: 180px;
+        }
+
+        .tree-couple-row {
+            display: flex;
+            gap: 30px;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 60px;
+            position: relative;
+        }
+
+        .tree-couple-row::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 40px;
+            height: 3px;
+            background: #4CAF50;
+            z-index: 0;
+        }
+
+        .tree-vertical-line {
+            width: 3px;
+            height: 50px;
+            background: var(--border);
+            margin: 0 auto;
+        }
+
+        .tree-children-row {
+            display: flex;
+            gap: 80px;
+            justify-content: center;
+            position: relative;
+        }
+
+        .tree-horizontal-connector {
+            position: absolute;
+            top: -50px;
+            height: 3px;
+            background: var(--border);
+            z-index: 0;
+        }
+
+        .tree-child-connector {
+            width: 3px;
+            height: 50px;
+            background: var(--border);
+            margin: 0 auto -50px;
+        }
+
+        .generation-label-traditional {
+            position: absolute;
+            left: -60px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 11px;
+            color: var(--text-light);
+            font-weight: 600;
+            writing-mode: vertical-rl;
+            text-orientation: mixed;
+        }
+
         /* Descendant Tree Styles */
         .descendant-tree {
             padding: 40px;
@@ -1027,7 +1114,7 @@
                     `;
                 }
 
-                document.getElementById('app').innerHTML = 
+                document.getElementById('app').innerHTML = "
                     <div class="auth-screen">
                         <div class="auth-box">
                             ${inviteBanner}
@@ -1063,7 +1150,7 @@
                             </div>
                         </div>
                     </div>
-                ;
+                ";
             }
 
             showLogin() {
@@ -1141,7 +1228,7 @@
             }
 
             renderMainApp() {
-                document.getElementById('app').innerHTML = 
+                document.getElementById('app').innerHTML = "
                     <nav class="navbar">
                         <div class="nav-content">
                             <div class="nav-logo" onclick="app.showHome()">🌳 Roots</div>
@@ -1190,6 +1277,7 @@
                                 <button class="control-btn" id="mindMapViewBtn" onclick="app.setTreeViewType(&apos;mindmap&apos;)" style="background: var(--primary); color: white;">Mind Map</button>
                                 <button class="control-btn" id="descendantViewBtn" onclick="app.setTreeViewType(&apos;descendant&apos;)">Descendant Tree</button>
                                 <button class="control-btn" id="fishboneViewBtn" onclick="app.setTreeViewType(&apos;fishbone&apos;)">Fishbone</button>
+                                <button class="control-btn" id="traditionalViewBtn" onclick="app.setTreeViewType(&apos;traditional&apos;)">Traditional Tree</button>
                                 <span style="width: 20px;"></span>
                                 <label>View as:</label>
                                 <select id="viewAsSelect" class="view-as-selector" onchange="app.changeViewingPerspective()">
@@ -1248,7 +1336,7 @@
                                         </div>
                                     </div>
                                     <input type="file" id="familyMemberPhotoInput" accept="image/*" class="hidden">
-                                    <button class="btn-secondary" onclick="document.getElementById('familyMemberPhotoInput').click()">
+                                    <button class="btn-secondary" onclick="document.getElementById(&apos;familyMemberPhotoInput&apos;).click()">
                                         Choose Photo
                                     </button>
                                 </div>
@@ -1337,7 +1425,7 @@
                             
                             <div style="margin: 16px 0;">
                                 <input type="file" id="postPhotoInput" accept="image/*" class="hidden">
-                                <button class="btn-secondary" onclick="document.getElementById('postPhotoInput').click()">
+                                <button class="btn-secondary" onclick="document.getElementById(&apos;postPhotoInput&apos;).click()">
                                     📸 Add Photo
                                 </button>
                                 <div id="postPhotoPreview" class="hidden" style="margin-top: 12px;">
@@ -1350,7 +1438,7 @@
                             </button>
                         </div>
                     </div>
-                ;
+                ";
 
                 this.setupEventListeners();
             }
@@ -1528,6 +1616,8 @@
                 document.getElementById('descendantViewBtn').style.color = 'var(--text)';
                 document.getElementById('fishboneViewBtn').style.background = 'var(--bg)';
                 document.getElementById('fishboneViewBtn').style.color = 'var(--text)';
+                document.getElementById('traditionalViewBtn').style.background = 'var(--bg)';
+                document.getElementById('traditionalViewBtn').style.color = 'var(--text)';
                 
                 // Highlight active button
                 if (type === 'mindmap') {
@@ -1539,6 +1629,9 @@
                 } else if (type === 'fishbone') {
                     document.getElementById('fishboneViewBtn').style.background = 'var(--primary)';
                     document.getElementById('fishboneViewBtn').style.color = 'white';
+                } else if (type === 'traditional') {
+                    document.getElementById('traditionalViewBtn').style.background = 'var(--primary)';
+                    document.getElementById('traditionalViewBtn').style.color = 'white';
                 }
                 
                 this.renderTree('fullTreeView');
@@ -1589,6 +1682,8 @@
                     this.renderDescendantTree(containerId);
                 } else if (containerId === 'fullTreeView' && this.treeViewType === 'fishbone') {
                     this.renderFishboneTree(containerId);
+                } else if (containerId === 'fullTreeView' && this.treeViewType === 'traditional') {
+                    this.renderTraditionalTree(containerId);
                 } else {
                     this.renderMindMapTree(containerId);
                 }
@@ -1873,6 +1968,135 @@
                          data-id="${member.id}"
                          oncontextmenu="app.showContextMenu(event, '${member.id}'); return false;"
                          style="padding: 10px; margin: 5px;">
+                        <img src="${member.avatar}" class="tree-node-avatar" alt="${member.name}">
+                        <div class="tree-node-name-always" style="text-align: center;">${member.name}</div>
+                        ${relationLabel ? `<div class="tree-node-relation" style="font-size: 10px; color: var(--secondary); margin-top: 4px; text-align: center;">${relationLabel}</div>` : ''}
+                    </div>
+                `;
+            }
+
+            renderTraditionalTree(containerId) {
+                const container = document.getElementById(containerId);
+                if (!container) return;
+
+                const viewingPerson = this.treeMembers.find(m => 
+                    m.userId === this.viewingAsUserId || m.id === this.viewingAsUserId
+                );
+
+                if (!viewingPerson) return;
+
+                // Calculate generations
+                this.calculateGenerations();
+
+                // Group by generation
+                const generationGroups = {};
+                this.treeMembers.forEach(member => {
+                    const gen = member.generation !== undefined ? member.generation : 0;
+                    if (!generationGroups[gen]) generationGroups[gen] = [];
+                    generationGroups[gen].push(member);
+                });
+
+                // Sort generations from oldest to youngest
+                const sortedGens = Object.keys(generationGroups).map(Number).sort((a, b) => a - b);
+
+                let html = '<div class="traditional-tree">';
+
+                sortedGens.forEach(genNum => {
+                    const members = generationGroups[genNum];
+                    const genLabel = genNum < -1 ? `Great${'-Great'.repeat(Math.abs(genNum) - 2)} Grandparents` :
+                                    genNum === -2 ? 'Great Grandparents' :
+                                    genNum === -1 ? 'Grandparents' :
+                                    genNum === 0 ? 'Parents Generation' :
+                                    genNum === 1 ? 'Children' :
+                                    genNum === 2 ? 'Grandchildren' :
+                                    `Generation ${genNum > 0 ? '+' : ''}${genNum}`;
+
+                    html += `<div class="tree-generation">`;
+                    html += `<div class="generation-label-traditional">${genLabel}</div>`;
+
+                    // Group couples together
+                    const processed = new Set();
+                    
+                    members.forEach(member => {
+                        if (processed.has(member.id)) return;
+
+                        html += '<div class="tree-family-group">';
+                        
+                        // Render couple
+                        html += '<div class="tree-couple-row">';
+                        const isViewing = member.userId === this.viewingAsUserId || member.id === this.viewingAsUserId;
+                        html += this.renderTraditionalNode(member, isViewing);
+                        processed.add(member.id);
+
+                        // Add spouse
+                        if (member.spouses && member.spouses.length > 0) {
+                            const spouseId = member.spouses[0];
+                            const spouse = generationGroups[genNum]?.find(m => m.id === spouseId);
+                            if (spouse) {
+                                const spouseViewing = spouse.userId === this.viewingAsUserId || spouse.id === this.viewingAsUserId;
+                                html += this.renderTraditionalNode(spouse, spouseViewing);
+                                processed.add(spouse.id);
+                            }
+                        }
+                        
+                        html += '</div>'; // Close couple-row
+
+                        // Get this couple's children
+                        const coupleChildren = [];
+                        if (member.children && member.children.length > 0) {
+                            member.children.forEach(childId => {
+                                const child = this.treeMembers.find(m => m.id === childId);
+                                if (child && child.generation === genNum + 1) {
+                                    coupleChildren.push(child);
+                                }
+                            });
+                        }
+
+                        // Render children if exists
+                        if (coupleChildren.length > 0) {
+                            html += '<div class="tree-vertical-line"></div>';
+                            html += '<div class="tree-children-row">';
+                            
+                            // Add horizontal connector if multiple children
+                            if (coupleChildren.length > 1) {
+                                const connectorWidth = (coupleChildren.length - 1) * 80 + 60;
+                                html += `<div class="tree-horizontal-connector" style="width: ${connectorWidth}px; left: 50%; transform: translateX(-50%);"></div>`;
+                            }
+                            
+                            coupleChildren.forEach(child => {
+                                html += '<div style="display: flex; flex-direction: column; align-items: center;">';
+                                html += '<div class="tree-child-connector"></div>';
+                                const childViewing = child.userId === this.viewingAsUserId || child.id === this.viewingAsUserId;
+                                html += this.renderTraditionalNode(child, childViewing);
+                                html += '</div>';
+                            });
+                            
+                            html += '</div>'; // Close children-row
+                        }
+
+                        html += '</div>'; // Close family-group
+                    });
+
+                    html += '</div>'; // Close generation
+                });
+
+                html += '</div>'; // Close traditional-tree
+                container.innerHTML = html;
+            }
+
+            renderTraditionalNode(member, isCurrentUser) {
+                const deceasedClass = member.isDeceased ? 'deceased' : '';
+                const currentUserClass = isCurrentUser ? 'current-user' : '';
+                const viewingPerson = this.treeMembers.find(m => 
+                    m.userId === this.viewingAsUserId || m.id === this.viewingAsUserId
+                );
+                const relationLabel = this.getRelationshipLabel(viewingPerson, member);
+                
+                return `
+                    <div class="tree-node ${deceasedClass} ${currentUserClass}" 
+                         data-id="${member.id}"
+                         oncontextmenu="app.showContextMenu(event, '${member.id}'); return false;"
+                         style="padding: 12px; z-index: 2; position: relative; background: white;">
                         <img src="${member.avatar}" class="tree-node-avatar" alt="${member.name}">
                         <div class="tree-node-name-always" style="text-align: center;">${member.name}</div>
                         ${relationLabel ? `<div class="tree-node-relation" style="font-size: 10px; color: var(--secondary); margin-top: 4px; text-align: center;">${relationLabel}</div>` : ''}
