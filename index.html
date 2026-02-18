@@ -729,6 +729,110 @@
             margin-top: 8px;
         }
 
+        /* Fishbone Tree Styles */
+        .fishbone-tree {
+            padding: 60px 40px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-width: 100%;
+            position: relative;
+        }
+
+        .fishbone-spine {
+            position: relative;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .fishbone-center-line {
+            position: absolute;
+            width: 100%;
+            height: 3px;
+            background: var(--primary);
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 0;
+        }
+
+        .fishbone-root {
+            position: relative;
+            z-index: 2;
+            background: white;
+            padding: 10px;
+        }
+
+        .fishbone-branches {
+            display: flex;
+            width: 100%;
+            justify-content: space-between;
+            margin-top: 50px;
+        }
+
+        .fishbone-side {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 80px;
+        }
+
+        .fishbone-side.left {
+            align-items: flex-end;
+            padding-right: 100px;
+        }
+
+        .fishbone-side.right {
+            align-items: flex-start;
+            padding-left: 100px;
+        }
+
+        .fishbone-branch {
+            position: relative;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .fishbone-branch.left {
+            flex-direction: row-reverse;
+        }
+
+        .fishbone-connector {
+            position: absolute;
+            width: 100px;
+            height: 2px;
+            background: var(--border);
+        }
+
+        .fishbone-branch.left .fishbone-connector {
+            right: -100px;
+            transform: rotate(30deg);
+            transform-origin: right center;
+        }
+
+        .fishbone-branch.right .fishbone-connector {
+            left: -100px;
+            transform: rotate(-30deg);
+            transform-origin: left center;
+        }
+
+        .fishbone-group {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .fishbone-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--secondary);
+            text-transform: uppercase;
+            margin-bottom: 10px;
+        }
+
         /* Descendant Tree Styles */
         .descendant-tree {
             padding: 40px;
@@ -923,7 +1027,7 @@
                     `;
                 }
 
-                document.getElementById('app').innerHTML =
+                document.getElementById('app').innerHTML = 
                     <div class="auth-screen">
                         <div class="auth-box">
                             ${inviteBanner}
@@ -1083,9 +1187,9 @@
                         <div id="fullTreePage" class="full-tree-view hidden">
                             <div class="tree-controls">
                                 <label>View Type:</label>
-                                <button class="control-btn" id="mindMapViewBtn" onclick="app.setTreeViewType('mindmap')" style="background: var(--primary); color: white;">Mind Map</button>
-                                <button class="control-btn" id="generationalViewBtn" onclick="app.setTreeViewType('generational')">Multigenerational</button>
-                                <button class="control-btn" id="descendantViewBtn" onclick="app.setTreeViewType('descendant')">Descendant Tree</button>
+                                <button class="control-btn" id="mindMapViewBtn" onclick="app.setTreeViewType(&apos;mindmap&apos;)" style="background: var(--primary); color: white;">Mind Map</button>
+                                <button class="control-btn" id="descendantViewBtn" onclick="app.setTreeViewType(&apos;descendant&apos;)">Descendant Tree</button>
+                                <button class="control-btn" id="fishboneViewBtn" onclick="app.setTreeViewType(&apos;fishbone&apos;)">Fishbone</button>
                                 <span style="width: 20px;"></span>
                                 <label>View as:</label>
                                 <select id="viewAsSelect" class="view-as-selector" onchange="app.changeViewingPerspective()">
@@ -1420,21 +1524,21 @@
                 // Reset all button styles
                 document.getElementById('mindMapViewBtn').style.background = 'var(--bg)';
                 document.getElementById('mindMapViewBtn').style.color = 'var(--text)';
-                document.getElementById('generationalViewBtn').style.background = 'var(--bg)';
-                document.getElementById('generationalViewBtn').style.color = 'var(--text)';
                 document.getElementById('descendantViewBtn').style.background = 'var(--bg)';
                 document.getElementById('descendantViewBtn').style.color = 'var(--text)';
+                document.getElementById('fishboneViewBtn').style.background = 'var(--bg)';
+                document.getElementById('fishboneViewBtn').style.color = 'var(--text)';
                 
                 // Highlight active button
                 if (type === 'mindmap') {
                     document.getElementById('mindMapViewBtn').style.background = 'var(--primary)';
                     document.getElementById('mindMapViewBtn').style.color = 'white';
-                } else if (type === 'generational') {
-                    document.getElementById('generationalViewBtn').style.background = 'var(--primary)';
-                    document.getElementById('generationalViewBtn').style.color = 'white';
                 } else if (type === 'descendant') {
                     document.getElementById('descendantViewBtn').style.background = 'var(--primary)';
                     document.getElementById('descendantViewBtn').style.color = 'white';
+                } else if (type === 'fishbone') {
+                    document.getElementById('fishboneViewBtn').style.background = 'var(--primary)';
+                    document.getElementById('fishboneViewBtn').style.color = 'white';
                 }
                 
                 this.renderTree('fullTreeView');
@@ -1480,15 +1584,11 @@
                     return;
                 }
 
-                // Check if we're in the fullTreeView and what view type to use
-                if (containerId === 'fullTreeView') {
-                    if (this.treeViewType === 'generational') {
-                        this.renderGenerationalTree(containerId);
-                    } else if (this.treeViewType === 'descendant') {
-                        this.renderDescendantTree(containerId);
-                    } else {
-                        this.renderMindMapTree(containerId);
-                    }
+                // Check view type
+                if (containerId === 'fullTreeView' && this.treeViewType === 'descendant') {
+                    this.renderDescendantTree(containerId);
+                } else if (containerId === 'fullTreeView' && this.treeViewType === 'fishbone') {
+                    this.renderFishboneTree(containerId);
                 } else {
                     this.renderMindMapTree(containerId);
                 }
@@ -1594,6 +1694,23 @@
                 container.innerHTML = html;
             }
 
+            drawCurvedLine(from, to, color, strokeWidth) {
+                const x1 = from.x + 25;
+                const y1 = from.y + 25;
+                const x2 = to.x + 25;
+                const y2 = to.y + 25;
+                
+                // Calculate control point for curve
+                const dx = x2 - x1;
+                const dy = y2 - y1;
+                const cx = x1 + dx / 2;
+                const cy = y1 + dy / 2 + Math.abs(dx) * 0.2;
+                
+                return `<path d="M ${x1} ${y1} Q ${cx} ${cy} ${x2} ${y2}" 
+                        stroke="${color}" stroke-width="${strokeWidth}" fill="none" 
+                        stroke-linecap="round"/>`;
+            }
+
             renderNode(member, position, isCurrentUser, relationLabel) {
                 const deceasedClass = member.isDeceased ? 'deceased' : '';
                 const currentUserClass = isCurrentUser ? 'current-user' : '';
@@ -1608,6 +1725,157 @@
                             <div class="tree-node-name">${member.name}</div>
                             <div class="tree-node-relation">${relationLabel || 'Family'}</div>
                         </div>
+                    </div>
+                `;
+            }
+
+            renderFishboneTree(containerId) {
+                const container = document.getElementById(containerId);
+                if (!container) return;
+
+                const viewingPerson = this.treeMembers.find(m => 
+                    m.userId === this.viewingAsUserId || m.id === this.viewingAsUserId
+                );
+
+                if (!viewingPerson) return;
+
+                const spouse = viewingPerson.spouses && viewingPerson.spouses.length > 0 ? 
+                    this.treeMembers.find(m => m.id === viewingPerson.spouses[0]) : null;
+
+                const parents = [];
+                if (viewingPerson.parents) {
+                    viewingPerson.parents.forEach(parentId => {
+                        const parent = this.treeMembers.find(m => m.id === parentId);
+                        if (parent) parents.push(parent);
+                    });
+                }
+
+                const grandparents = [];
+                parents.forEach(parent => {
+                    if (parent.parents) {
+                        parent.parents.forEach(gpId => {
+                            const gp = this.treeMembers.find(m => m.id === gpId);
+                            if (gp && !grandparents.find(g => g.id === gp.id)) {
+                                grandparents.push(gp);
+                            }
+                        });
+                    }
+                });
+
+                const siblings = [];
+                if (viewingPerson.siblings) {
+                    viewingPerson.siblings.forEach(sibId => {
+                        const sib = this.treeMembers.find(m => m.id === sibId);
+                        if (sib) siblings.push(sib);
+                    });
+                }
+
+                const children = [];
+                if (viewingPerson.children) {
+                    viewingPerson.children.forEach(childId => {
+                        const child = this.treeMembers.find(m => m.id === childId);
+                        if (child) children.push(child);
+                    });
+                }
+
+                const grandchildren = [];
+                children.forEach(child => {
+                    if (child.children) {
+                        child.children.forEach(gcId => {
+                            const gc = this.treeMembers.find(m => m.id === gcId);
+                            if (gc && !grandchildren.find(g => g.id === gc.id)) {
+                                grandchildren.push(gc);
+                            }
+                        });
+                    }
+                });
+
+                const unclesAunts = [];
+                parents.forEach(parent => {
+                    if (parent.siblings) {
+                        parent.siblings.forEach(sibId => {
+                            const sib = this.treeMembers.find(m => m.id === sibId);
+                            if (sib && !unclesAunts.find(u => u.id === sib.id)) {
+                                unclesAunts.push(sib);
+                            }
+                        });
+                    }
+                });
+
+                let html = '<div class="fishbone-tree">';
+                html += '<div class="fishbone-spine">';
+                html += '<div class="fishbone-center-line"></div>';
+                html += '<div class="fishbone-root">';
+                html += this.renderFishboneNode(viewingPerson, true, 'You');
+                if (spouse) {
+                    html += this.renderFishboneNode(spouse, false, 'Spouse');
+                }
+                html += '</div></div>';
+
+                html += '<div class="fishbone-branches">';
+                html += '<div class="fishbone-side left">';
+                
+                if (grandparents.length > 0) {
+                    html += '<div class="fishbone-branch left"><div class="fishbone-connector"></div><div class="fishbone-group">';
+                    html += '<div class="fishbone-label">Grandparents</div>';
+                    grandparents.forEach(gp => html += this.renderFishboneNode(gp, false, this.getRelationshipLabel(viewingPerson, gp)));
+                    html += '</div></div>';
+                }
+
+                if (parents.length > 0) {
+                    html += '<div class="fishbone-branch left"><div class="fishbone-connector"></div><div class="fishbone-group">';
+                    html += '<div class="fishbone-label">Parents</div>';
+                    parents.forEach(parent => html += this.renderFishboneNode(parent, false, this.getRelationshipLabel(viewingPerson, parent)));
+                    html += '</div></div>';
+                }
+
+                if (unclesAunts.length > 0) {
+                    html += '<div class="fishbone-branch left"><div class="fishbone-connector"></div><div class="fishbone-group">';
+                    html += '<div class="fishbone-label">Uncles & Aunts</div>';
+                    unclesAunts.forEach(ua => html += this.renderFishboneNode(ua, false, this.getRelationshipLabel(viewingPerson, ua)));
+                    html += '</div></div>';
+                }
+
+                html += '</div>';
+                html += '<div class="fishbone-side right">';
+                
+                if (siblings.length > 0) {
+                    html += '<div class="fishbone-branch right"><div class="fishbone-connector"></div><div class="fishbone-group">';
+                    html += '<div class="fishbone-label">Siblings</div>';
+                    siblings.forEach(sib => html += this.renderFishboneNode(sib, false, this.getRelationshipLabel(viewingPerson, sib)));
+                    html += '</div></div>';
+                }
+
+                if (children.length > 0) {
+                    html += '<div class="fishbone-branch right"><div class="fishbone-connector"></div><div class="fishbone-group">';
+                    html += '<div class="fishbone-label">Children</div>';
+                    children.forEach(child => html += this.renderFishboneNode(child, false, this.getRelationshipLabel(viewingPerson, child)));
+                    html += '</div></div>';
+                }
+
+                if (grandchildren.length > 0) {
+                    html += '<div class="fishbone-branch right"><div class="fishbone-connector"></div><div class="fishbone-group">';
+                    html += '<div class="fishbone-label">Grandchildren</div>';
+                    grandchildren.forEach(gc => html += this.renderFishboneNode(gc, false, this.getRelationshipLabel(viewingPerson, gc)));
+                    html += '</div></div>';
+                }
+
+                html += '</div></div></div>';
+                container.innerHTML = html;
+            }
+
+            renderFishboneNode(member, isCurrentUser, relationLabel) {
+                const deceasedClass = member.isDeceased ? 'deceased' : '';
+                const currentUserClass = isCurrentUser ? 'current-user' : '';
+                
+                return `
+                    <div class="tree-node ${deceasedClass} ${currentUserClass}" 
+                         data-id="${member.id}"
+                         oncontextmenu="app.showContextMenu(event, '${member.id}'); return false;"
+                         style="padding: 10px; margin: 5px;">
+                        <img src="${member.avatar}" class="tree-node-avatar" alt="${member.name}">
+                        <div class="tree-node-name-always" style="text-align: center;">${member.name}</div>
+                        ${relationLabel ? `<div class="tree-node-relation" style="font-size: 10px; color: var(--secondary); margin-top: 4px; text-align: center;">${relationLabel}</div>` : ''}
                     </div>
                 `;
             }
